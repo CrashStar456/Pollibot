@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PolliBot 🐝</title>
+
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #dff7ff;
+        color: #263238;
+        text-align: center;
+    }
+
+    header {
+        background: #ffd83d;
+        padding: 18px;
+        border-bottom: 5px solid #e5b900;
+    }
+
+    h1 {
+        margin: 0;
+        font-size: 38px;
+    }
+
+    #levelTitle {
+        margin: 5px 0 0;
+    }
+
+    .game {
+        max-width: 700px;
+        margin: 20px auto;
+        padding: 15px;
+    }
+
+    #message {
+        min-height: 45px;
+        font-size: 18px;
+        font-weight: bold;
+        margin: 10px;
+    }
+
+    #board {
+        display: grid;
+        gap: 4px;
+        margin: 20px auto;
+        width: min(90vw, 500px);
+        aspect-ratio: 1;
+        background: #86c95e;
+        padding: 5px;
+        border: 5px solid #548b38;
+        border-radius: 12px;
+    }
+
+    .cell {
+        background: #b8e986;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: clamp(24px, 7vw, 45px);
+        border-radius: 6px;
+    }
+
+    .bee {
+        background: #ffe66d;
+    }
+
+    .controls {
+        background: white;
+        padding: 15px;
+        border-radius: 15px;
+        box-shadow: 0 4px 10px #0002;
+    }
+
+    button {
+        font-size: 17px;
+        padding: 12px 18px;
+        margin: 5px;
+        border: none;
+        border-radius: 10px;
+        background: #ffca28;
+        cursor: pointer;
+        font-weight: bold;
+    }
+
+    button:hover {
+        background: #ffb300;
+        transform: scale(1.03);
+    }
+
+    #run {
+        background: #66bb6a;
+        color: white;
+    }
+
+    #reset {
+        background: #ef5350;
+        color: white;
+    }
+
+    #next {
+        background: #42a5f5;
+        color: white;
+        display: none;
+    }
+
+    #commands {
+        min-height: 50px;
+        margin: 10px;
+        padding: 10px;
+        background: #f5f5f5;
+        border-radius: 10px;
+    }
+
+    .command {
+        display: inline-block;
+        background: #fff176;
+        padding: 6px 10px;
+        margin: 3px;
+        border-radius: 6px;
+    }
+
+    .instructions {
+        margin-top: 15px;
+        font-size: 15px;
+    }
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>🐝 PolliBot</h1>
+    <div id="levelTitle">Level 1</div>
+</header>
+
+<div class="game">
+
+    <div id="message">
+        Get the bee to the flower and pollinate it!
+    </div>
+
+    <div id="board"></div>
+
+    <div class="controls">
+
+        <h3>Your program:</h3>
+        <div id="commands">No commands yet!</div>
+
+        <button onclick="addCommand('forward')">⬆️ Forward</button>
+        <button onclick="addCommand('left')">↩️ Turn Left</button>
+        <button onclick="addCommand('right')">↪️ Turn Right</button>
+        <button onclick="addCommand('pollinate')">🌼 Pollinate</button>
+
+        <br>
+
+        <button id="run" onclick="runProgram()">▶️ Run!</button>
+        <button id="reset" onclick="resetCommands()">🗑️ Clear</button>
+        <button id="next" onclick="nextLevel()">➡️ Next Level</button>
+
+    </div>
+
+    <div class="instructions">
+        <p>💡 Program the bee one command at a time.</p>
+        <p>🐝 The bee must be standing on a flower to pollinate it!</p>
+    </div>
+
+</div>
+
+<script>
+
+const levels = [
+
+    {
+        size: 5,
+        bee: [4, 0],
+        direction: 0,
+        flowers: [[0, 4]]
+    },
+
+    {
+        size: 5,
+        bee: [4, 0],
+        direction: 0,
+        flowers: [[2, 2]]
+    },
+
+    {
+        size: 6,
+        bee: [5, 0],
+        direction: 0,
+        flowers: [[1, 4]]
+    },
+
+    {
+        size: 6,
+        bee: [5, 0],
+        direction: 0,
+        flowers: [[0, 5], [3, 3]]
+    },
+
+    {
+        size: 7,
+        bee: [6, 0],
+        direction: 0,
+        flowers: [[0, 6], [2, 4], [5, 2]]
+    }
+
+];
+
+let currentLevel = 0;
+let bee;
+let flowers;
+let commands = [];
+let running = false;
+
+/*
+Directions:
+0 = up
+1 = right
+2 = down
+3 = left
+*/
+
+function loadLevel() {
+
+    const level = levels[currentLevel];
+
+    bee = {
+        row: level.bee[0],
+        col: level.bee[1],
+        direction: level.direction
+    };
+
+    flowers = level.flowers.map(pos => ({
+        row: pos[0],
+        col: pos[1],
+        pollinated: false
+    }));
+
+    commands = [];
+
+    document.getElementById("levelTitle").textContent =
+        "Level " + (currentLevel + 1) + " of " + levels.length;
+
+    document.getElementById("message").textContent =
+        "Get the bee to the flower and pollinate it!";
+
+    document.getElementById("next").style.display = "none";
+
+    drawBoard();
+    updateCommands();
+}
+
+function drawBoard() {
+
+    const board = document.getElementById("board");
+    const size = levels[currentLevel].size;
+
+    board.innerHTML = "";
+    board.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+
+    for (let row = 0; row < size; row++) {
+
+        for (let col = 0; col < size; col++) {
+
+            const cell = document.createElement("div");
+            cell.className = "cell";
+
+            const flower = flowers.find(
+                f => f.row === row && f.col === col
+            );
+
+            if (flower) {
+                cell.textContent = flower.pollinated ? "🌸" : "🌼";
+            }
+
+            if (bee.row === row && bee.col === col) {
+
+                cell.classList.add("bee");
+
+                let beeEmoji = ["🐝", "🐝", "🐝", "🐝"][bee.direction];
+
+                cell.textContent = beeEmoji;
+            }
+
+            board.appendChild(cell);
+        }
+    }
+}
+
+function addCommand(command) {
+
+    if (running) return;
+
+    commands.push(command);
+    updateCommands();
+}
+
+function updateCommands() {
+
+    const box = document.getElementById("commands");
+
+    if (commands.length === 0) {
+        box.textContent = "No commands yet!";
+        return;
+    }
+
+    box.innerHTML = "";
+
+    commands.forEach((command, index) => {
+
+        const span = document.createElement("span");
+        span.className = "command";
+
+        const names = {
+            forward: "⬆️ Forward",
+            left: "↩️ Left",
+            right: "↪️ Right",
+            pollinate: "🌼 Pollinate"
+        };
+
+        span.textContent = (index + 1) + ". " + names[command];
+
+        box.appendChild(span);
+    });
+}
+
+function resetCommands() {
+
+    if (running) return;
+
+    commands = [];
+    loadLevel();
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function runProgram() {
+
+    if (running || commands.length === 0) return;
+
+    running = true;
+
+    document.getElementById("message").textContent =
+        "🐝 Here we go!";
+
+    for (const command of commands) {
+
+        await sleep(500);
+
+        if (command === "left") {
+
+            bee.direction--;
+
+            if (bee.direction < 0) {
+                bee.direction = 3;
+            }
+
+        }
+
+        else if (command === "right") {
+
+            bee.direction++;
+
+            if (bee.direction > 3) {
+                bee.direction = 0;
+            }
+
+        }
+
+        else if (command === "forward") {
+
+            let newRow = bee.row;
+            let newCol = bee.col;
+
+            if (bee.direction === 0) newRow--;
+            if (bee.direction === 1) newCol++;
+            if (bee.direction === 2) newRow++;
+            if (bee.direction === 3) newCol--;
+
+            const size = levels[currentLevel].size;
+
+            if (
+                newRow >= 0 &&
+                newRow < size &&
+                newCol >= 0 &&
+                newCol < size
+            ) {
+                bee.row = newRow;
+                bee.col = newCol;
+            } else {
+
+                document.getElementById("message").textContent =
+                    "💥 Oops! The bee bumped into the edge!";
+
+                running = false;
+                drawBoard();
+                return;
+            }
+        }
+
+        else if (command === "pollinate") {
+
+            const flower = flowers.find(
+                f =>
+                    f.row === bee.row &&
+                    f.col === bee.col
+            );
+
+            if (flower) {
+
+                flower.pollinated = true;
+
+                document.getElementById("message").textContent =
+                    "🌸 Pollinated!";
+
+            } else {
+
+                document.getElementById("message").textContent =
+                    "🐝 There's no flower here!";
+            }
+        }
+
+        drawBoard();
+    }
+
+    await sleep(500);
+
+    const allPollinated = flowers.every(
+        flower => flower.pollinated
+    );
+
+    if (allPollinated) {
+
+        document.getElementById("message").textContent =
+            "🎉 Level complete! Great job!";
+
+        if (currentLevel === levels.length - 1) {
+
+            document.getElementById("message").textContent =
+                "🏆 You completed all 5 levels! 🐝🌸";
+
+        } else {
+
+            document.getElementById("next").style.display =
+                "inline-block";
+        }
+
+    } else {
+
+        document.getElementById("message").textContent =
+            "Almost! You need to pollinate every flower.";
+    }
+
+    running = false;
+}
+
+function nextLevel() {
+
+    if (currentLevel < levels.length - 1) {
+        currentLevel++;
+        loadLevel();
+    }
+}
+
+loadLevel();
+
+</script>
+
+</body>
+</html>
